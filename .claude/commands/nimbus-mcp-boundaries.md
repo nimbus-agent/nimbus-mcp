@@ -81,6 +81,20 @@ the boundary reasserting itself.
 - **`mcpName` in `package.json` ships in the tarball.** It is how the MCP Registry
   verifies npm ownership, and it is checked against the *published* package. Changing it
   means cutting a new npm version — it is not a metadata edit.
+- **`server.json`'s two version fields are bumped by release-please, not by the workflow.**
+  They are `extra-files` entries in `release-please-config.json`. The `publish-registry`
+  job *asserts* they match what npm published rather than rewriting them, because a
+  rewrite would mask a broken `extra-files` config and ship a registry entry pointing at
+  a version nobody can install. If that assert fails, fix the config — do not patch the
+  file in CI.
+- **Publishing to the MCP Registry from CI is credential-free; doing it by hand is not.**
+  `login github-oidc` works because the OIDC subject is this repo, so the org namespace
+  follows from the repo's owner. Interactively, it cannot: the registry's login app
+  ("MCP Registry Login (Prod)", client `Iv23liUydBbI7Z2Q9bOZ`) is a **private GitHub App**,
+  so it cannot be installed on `nimbus-agent`, so a device-flow token can never read the
+  org role — and org publishing then requires a `read:org` PAT. The CLI's error text
+  ("make your organization membership public") points at the wrong thing; public
+  membership is not the requirement. Prefer letting CI do it.
 - **`SONAR_TOKEN` absence makes the Sonar check pass, not fail.** `sonar.yml` guards the
   analysis *step* with `if: env.SONAR_TOKEN != ''`, while the *job* always reports. A
   green "SonarQube Cloud analysis" is therefore not evidence anything was analysed.

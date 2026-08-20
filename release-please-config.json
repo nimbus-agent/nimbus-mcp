@@ -4,7 +4,19 @@
   "packages": {
     ".": {
       "release-type": "node",
-      "package-name": "@nimbus-dev/mcp"
+      "package-name": "@nimbus-dev/mcp",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "server.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "server.json",
+          "jsonpath": "$.packages[0].version"
+        }
+      ]
     }
   }
 }
