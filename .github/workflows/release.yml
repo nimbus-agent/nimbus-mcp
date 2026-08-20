@@ -66,6 +66,10 @@ jobs:
       contents: read
       # Required for npm provenance + token-less OIDC trusted publishing.
       id-token: write
+    outputs:
+      # Consumed by publish-registry below, so the registry entry is asserted
+      # against the version npm actually accepted rather than re-derived.
+      version: ${{ steps.published.outputs.version }}
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
@@ -199,3 +203,78 @@ jobs:
           expected-workflow: .github/workflows/release.yml
           expected-sha: ${{ github.sha }}
           severity: gate
+
+  # The registry entry is metadata POINTING AT the npm package, so it must land
+  # after that package exists — `needs: publish` is the ordering guarantee.
+  # A separate tag-triggered workflow (what the registry's own docs suggest)
+  # would start when release-please pushes the tag, which happens BEFORE the
+  # publish job runs, and would race the npm publish it depends on.
+  publish-registry:
+    needs: [release-please, publish]
+    if: needs.release-please.outputs.releases_created == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # The whole point. The registry derives the publishable namespace from this
+      # token's subject (nimbus-agent/nimbus-mcp), so `io.github.nimbus-agent/*`
+      # follows from the repo's OWNER rather than from reading a human's org role.
+      # That is what makes this credential-free: the registry's login app is a
+      # PRIVATE GitHub App that cannot be installed on our org, so a device-flow
+      # token can never see the org and INTERACTIVE publishing requires a PAT.
+      id-token: write
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          # Reaches GitHub's OIDC endpoint plus the registry; audit rather than
+          # block, matching the publish job above.
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Pinned and checksum-verified rather than `latest`: this binary runs with
+      # an OIDC token in scope, so it gets the same supply-chain treatment as the
+      # SHA-pinned actions around it. Bumping the version is a reviewed change,
+      # and nothing bumps it automatically — dependabot does not track release
+      # assets fetched by a run step.
+      - name: Install mcp-publisher (pinned, checksum-verified)
+        env:
+          MCP_PUBLISHER_VERSION: v1.8.1
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release download "${MCP_PUBLISHER_VERSION}" \
+            --repo modelcontextprotocol/registry \
+            --pattern "mcp-publisher_linux_amd64.tar.gz" \
+            --pattern "registry_*_checksums.txt"
+          grep "mcp-publisher_linux_amd64.tar.gz$" registry_*_checksums.txt | sha256sum -c -
+          tar -xzf mcp-publisher_linux_amd64.tar.gz mcp-publisher
+          ./mcp-publisher --help >/dev/null
+
+      - name: Assert server.json matches the version just published to npm
+        env:
+          PUBLISHED_VERSION: ${{ needs.publish.outputs.version }}
+        run: |
+          set -euo pipefail
+          # release-please keeps server.json in step via `extra-files`, so this is
+          # an ASSERTION, not a fixup. Rewriting the file here instead would mask a
+          # release-please misconfiguration and ship a registry entry pointing at a
+          # version nobody can install.
+          top="$(jq -r '.version' server.json)"
+          pkg="$(jq -r '.packages[0].version' server.json)"
+          if [ "${top}" != "${PUBLISHED_VERSION}" ] || [ "${pkg}" != "${PUBLISHED_VERSION}" ]; then
+            echo "::error::server.json says ${top} / ${pkg} but npm published ${PUBLISHED_VERSION}."
+            echo "::error::The release-please extra-files entry for server.json is not doing its job."
+            exit 1
+          fi
+          echo "server.json agrees with npm at ${PUBLISHED_VERSION}"
+
+      - name: Authenticate to the MCP Registry via OIDC
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish the registry entry
+        run: ./mcp-publisher publish
