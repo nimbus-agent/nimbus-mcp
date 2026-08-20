@@ -1,0 +1,29 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.nimbus-agent/nimbus",
+  "description": "Search your local Nimbus index and run its built-in agents from any MCP client.",
+  "repository": {
+    "url": "https://github.com/nimbus-agent/nimbus-mcp",
+    "source": "github"
+  },
+  "version": "0.2.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@nimbus-dev/mcp",
+      "version": "0.2.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "NIMBUS_BIN",
+          "description": "Optional absolute path to the nimbus binary. Only needed when the launcher cannot find it on PATH or in a known install directory — most commonly a GUI-launched editor on macOS, which spawns MCP servers without the user's shell PATH.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "filepath"
+        }
+      ]
+    }
+  ]
+}
