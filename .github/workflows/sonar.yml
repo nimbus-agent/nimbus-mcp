@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Dispatchable so the gate can be exercised without pushing a commit. The
+  # analysis STEP is guarded by `if: env.SONAR_TOKEN != ''` while the JOB is not,
+  # so a green check is not evidence anything was analysed — being able to re-run
+  # on demand is what makes that verifiable.
+  workflow_dispatch:
 
 permissions:
   contents: read

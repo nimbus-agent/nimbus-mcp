@@ -24,10 +24,24 @@ reports within a few business days.
 
 - **Zero runtime dependencies.** The published package declares `devDependencies`
   only, so its supply-chain surface is this repo's own source and nothing else.
-- **Provenance publishing.** Releases are published with `npm publish --provenance`
-  via GitHub Actions OIDC / npm trusted-publisher — there is no long-lived npm
-  token in repository or organization secrets, and each release carries a
-  verifiable attestation.
+- **Provenance publishing, from 0.2.0 onward.** Releases are published with
+  `npm publish --provenance` via GitHub Actions OIDC / npm trusted-publisher —
+  there is no long-lived npm token in repository or organization secrets, and
+  each such release carries a verifiable attestation, checked in-workflow
+  against the expected repo, workflow and commit before the release is allowed
+  to stand.
+
+  **`0.1.0` is the exception and has no attestation.** npm does not allow a
+  trusted publisher to be configured until a package has at least one published
+  version, so `0.1.0` was published by hand to create the package. It carries no
+  provenance and should not be used; it exists only as the bootstrap. Verify any
+  later version yourself:
+
+  ```bash
+  tmp="$(mktemp -d)" && cd "$tmp" && npm init -y >/dev/null
+  npm install @nimbus-dev/mcp --no-audit --no-fund
+  npm audit signatures
+  ```
 - **Binary resolution is the security surface.** The launcher picks an executable
   and runs it. Resolution order is `NIMBUS_BIN` (explicit operator override) →
   `PATH` → a fixed, closed list of known install directories in
