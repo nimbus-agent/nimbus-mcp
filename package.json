@@ -1,6 +1,7 @@
 {
   "name": "@nimbus-dev/mcp",
   "version": "0.1.0",
+  "mcpName": "io.github.nimbus-agent/nimbus",
   "description": "Launcher for the Nimbus MCP server — exposes your local Nimbus index and agents to any MCP client.",
   "license": "MIT",
   "repository": {
@@ -25,6 +26,8 @@
     "lint": "biome check ."
   },
   "devDependencies": {
-    "@types/bun": "^1.3.14"
+    "@biomejs/biome": "^2.5.7",
+    "@types/bun": "^1.3.14",
+    "typescript": "^7.0.2"
   }
 }

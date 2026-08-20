@@ -1,0 +1,44 @@
+# CodeRabbit configuration — https://docs.coderabbit.ai/configure/
+# The CodeRabbit GitHub App must have access to this repository (org-level
+# install on nimbus-agent, or add nimbus-mcp to the app's repo list).
+language: en-US
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+  path_filters:
+    - "!dist/**"
+  path_instructions:
+    - path: "src/**/*.ts"
+      instructions: >-
+        This is @nimbus-dev/mcp — the MIT-licensed launcher that resolves the
+        locally installed `nimbus` binary and execs it as `nimbus mcp-server
+        --stdio`. It does no work itself and must never import from the AGPL
+        nimbus-agent/Nimbus monorepo. Flag: any `any` (prefer `unknown` + a type
+        guard); ANY new runtime dependency in package.json (this package has
+        ZERO by design — that is a licence and supply-chain boundary, not a
+        preference; inline helpers instead); any path literal added to
+        CANDIDATE_DIRS that is not either the installer's own output directory
+        or a real distribution channel's (invented fallbacks like `~/.nimbus/bin`
+        are explicitly rejected); and any change to an exported type that isn't
+        reflected as a semver-relevant change (Conventional Commits drive
+        release-please).
+    - path: "src/installer-contract.ts"
+      instructions: >-
+        These two literals are vendored from `scripts/install/lib/paths.ts`
+        (`resolveInstallDir`) in the AGPL monorepo and are HALF of a cross-repo
+        contract — the other half is
+        `scripts/structure-audit/check-launcher-installer-contract.ts` there,
+        which parses these exact constant NAMES. Flag any rename of
+        INSTALLER_WIN32_SUFFIX or INSTALLER_POSIX_SUFFIX, any change from
+        `String.raw`/double-quoted literal form, and any value edit not
+        accompanied by a matching monorepo change — a mismatch strands every
+        PATH-less MCP client on a wrong directory.
+chat:
+  auto_reply: true
