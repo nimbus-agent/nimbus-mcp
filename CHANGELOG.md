@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/nimbus-agent/nimbus-mcp/compare/mcp-v0.3.0...mcp-v0.4.0) (2026-08-22)
+
+
+### Features
+
+* resolve Nimbus installed via Scoop or Homebrew-on-Linux ([#7](https://github.com/nimbus-agent/nimbus-mcp/issues/7)) ([26ef2b1](https://github.com/nimbus-agent/nimbus-mcp/commit/26ef2b16ffd5a6c95d26a7f90110551f459d87aa))
+
 ## [0.3.0](https://github.com/nimbus-agent/nimbus-mcp/compare/mcp-v0.2.0...mcp-v0.3.0) (2026-08-22)
 
 

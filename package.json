@@ -1,6 +1,6 @@
 {
   "name": "@nimbus-dev/mcp",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "mcpName": "io.github.nimbus-agent/nimbus",
   "description": "Launcher for the Nimbus MCP server — exposes your local Nimbus index and agents to any MCP client.",
   "license": "MIT",
