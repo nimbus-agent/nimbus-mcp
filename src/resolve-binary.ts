@@ -55,7 +55,13 @@ function binName(platform: Platform): string {
  *
  * Entries after the first are additional plausible locations, not installer output — a
  * package-manager or hand-placed binary. Nothing invented: every path here either is the installer's
- * own, or is a directory a real distribution channel uses.
+ * own, or is a directory a real distribution channel uses. The package-manager channels are the ones
+ * the monorepo publishes manifests for in `scripts/release/package-manager-manifests.ts`, served by
+ * `nimbus-agent/homebrew-tap` and `nimbus-agent/scoop-bucket`.
+ *
+ * ORDER IS APPEND-ONLY. New channels go at the END of a platform's list, so adding one can only
+ * turn a `not-found` into a `found` — never redirect an install that already resolves. Two tests in
+ * `resolve-binary.test.ts` pin that ("the installer directory still wins over ...").
  */
 export function CANDIDATE_DIRS(
   platform: Platform,
@@ -64,12 +70,37 @@ export function CANDIDATE_DIRS(
 ): string[] {
   if (platform === "win32") {
     const localAppData = env["LOCALAPPDATA"] ?? join(platform, home, "AppData", "Local");
-    return [join(platform, localAppData, "Programs", "Nimbus", "bin")];
+    // Scoop puts a real `.exe` shim in `<root>\shims`, so `binName` needs no PATHEXT handling —
+    // only the directory was missing. Both roots are relocatable and commonly relocated off a small
+    // C: drive, so the env overrides are read rather than assuming the defaults.
+    //
+    // These keys are read in UPPER CASE because Node's `process.env` on Windows is a
+    // case-insensitive proxy — `PROGRAMDATA` finds the OS's mixed-case `ProgramData` at runtime.
+    // Test doubles are plain Records and case-sensitive, so they must match this spelling.
+    const scoopUser = env["SCOOP"] ?? join(platform, home, "scoop");
+    const scoopGlobal =
+      env["SCOOP_GLOBAL"] ?? join(platform, env["PROGRAMDATA"] ?? "C:\\ProgramData", "scoop");
+    return [
+      join(platform, localAppData, "Programs", "Nimbus", "bin"),
+      join(platform, scoopUser, "shims"),
+      join(platform, scoopGlobal, "shims"),
+    ];
   }
   if (platform === "darwin") {
+    // Homebrew's macOS prefixes are `/opt/homebrew` (Apple Silicon) and `/usr/local` (Intel) —
+    // both already in this list, so the tap needs no extra entry here.
     return [join(platform, home, ".local", "bin"), "/opt/homebrew/bin", "/usr/local/bin"];
   }
-  return [join(platform, home, ".local", "bin"), "/usr/local/bin", "/usr/bin"];
+  // `/usr/local/bin` also covers the apt/yum packages, whose wrapper scripts land there
+  // (`scripts/release/nfpm-config.ts`). The linuxbrew entries are Homebrew-on-Linux: the shared
+  // prefix its installer creates, then the personal one used when that path is not writable.
+  return [
+    join(platform, home, ".local", "bin"),
+    "/usr/local/bin",
+    "/usr/bin",
+    "/home/linuxbrew/.linuxbrew/bin",
+    join(platform, home, ".linuxbrew", "bin"),
+  ];
 }
 
 export function resolveNimbusBinary(input: ResolveInput): Resolution {
