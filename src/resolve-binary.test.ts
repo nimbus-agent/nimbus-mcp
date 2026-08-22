@@ -85,3 +85,114 @@ test("no candidate directory is a location no installer or distribution channel 
     }
   }
 });
+
+/**
+ * Scoop and Homebrew-on-Linux are advertised install channels for the Nimbus CLI — the
+ * monorepo's `docs/install.md` lists both, and `nimbus-agent/scoop-bucket` and
+ * `nimbus-agent/homebrew-tap` are the repos serving them. A binary installed that way has
+ * to resolve when the MCP client spawns us without the user's shell PATH, which is the
+ * whole reason CANDIDATE_DIRS exists.
+ *
+ * NOTE ON ENV KEYS: Node's `process.env` on Windows is a case-INSENSITIVE proxy, so at
+ * runtime `env["PROGRAMDATA"]` finds the OS's mixed-case `ProgramData`. The plain objects
+ * these tests pass are ordinary Records and ARE case-sensitive, so they must spell each
+ * key exactly as `resolve-binary.ts` reads it.
+ */
+
+test("a Scoop per-user shim is found at the default Scoop root", () => {
+  const got = resolveNimbusBinary({
+    env: { LOCALAPPDATA: "C:\\Users\\u\\AppData\\Local" },
+    platform: "win32",
+    home: "C:\\Users\\u",
+    exists: (p) => p === "C:\\Users\\u\\scoop\\shims\\nimbus.exe",
+  });
+  expect(got).toEqual({
+    kind: "found",
+    path: "C:\\Users\\u\\scoop\\shims\\nimbus.exe",
+    via: "install-dir",
+  });
+});
+
+test("a relocated Scoop root is honoured via $SCOOP", () => {
+  const got = resolveNimbusBinary({
+    env: { LOCALAPPDATA: "C:\\Users\\u\\AppData\\Local", SCOOP: "D:\\scoop" },
+    platform: "win32",
+    home: "C:\\Users\\u",
+    exists: (p) => p === "D:\\scoop\\shims\\nimbus.exe",
+  });
+  expect(got.kind).toBe("found");
+  if (got.kind === "found") expect(got.path).toBe("D:\\scoop\\shims\\nimbus.exe");
+});
+
+test("a global Scoop install is found under %ProgramData%", () => {
+  const got = resolveNimbusBinary({
+    env: { LOCALAPPDATA: "C:\\Users\\u\\AppData\\Local", PROGRAMDATA: "C:\\ProgramData" },
+    platform: "win32",
+    home: "C:\\Users\\u",
+    exists: (p) => p === "C:\\ProgramData\\scoop\\shims\\nimbus.exe",
+  });
+  expect(got.kind).toBe("found");
+  if (got.kind === "found") expect(got.path).toBe("C:\\ProgramData\\scoop\\shims\\nimbus.exe");
+});
+
+test("a relocated global Scoop root is honoured via $SCOOP_GLOBAL", () => {
+  const got = resolveNimbusBinary({
+    env: { LOCALAPPDATA: "C:\\Users\\u\\AppData\\Local", SCOOP_GLOBAL: "E:\\shared\\scoop" },
+    platform: "win32",
+    home: "C:\\Users\\u",
+    exists: (p) => p === "E:\\shared\\scoop\\shims\\nimbus.exe",
+  });
+  expect(got.kind).toBe("found");
+  if (got.kind === "found") expect(got.path).toBe("E:\\shared\\scoop\\shims\\nimbus.exe");
+});
+
+test("the installer directory still wins over a Scoop shim when both exist", () => {
+  // The new entries are APPENDED, never inserted: every input that resolves today must
+  // resolve to the same path afterwards. Reordering the list would break this.
+  const got = resolveNimbusBinary({
+    env: { LOCALAPPDATA: "C:\\Users\\u\\AppData\\Local" },
+    platform: "win32",
+    home: "C:\\Users\\u",
+    exists: () => true,
+  });
+  expect(got).toEqual({
+    kind: "found",
+    path: "C:\\Users\\u\\AppData\\Local\\Programs\\Nimbus\\bin\\nimbus.exe",
+    via: "install-dir",
+  });
+});
+
+test("a Homebrew-on-Linux install is found at the shared linuxbrew prefix", () => {
+  const got = resolveNimbusBinary({
+    env: {},
+    platform: "linux",
+    home: "/home/u",
+    exists: (p) => p === "/home/linuxbrew/.linuxbrew/bin/nimbus",
+  });
+  expect(got).toEqual({
+    kind: "found",
+    path: "/home/linuxbrew/.linuxbrew/bin/nimbus",
+    via: "install-dir",
+  });
+});
+
+test("a Homebrew-on-Linux install is found at the personal linuxbrew prefix", () => {
+  const got = resolveNimbusBinary({
+    env: {},
+    platform: "linux",
+    home: "/home/u",
+    exists: (p) => p === "/home/u/.linuxbrew/bin/nimbus",
+  });
+  expect(got.kind).toBe("found");
+  if (got.kind === "found") expect(got.path).toBe("/home/u/.linuxbrew/bin/nimbus");
+});
+
+test("the installer directory still wins over linuxbrew when both exist", () => {
+  const got = resolveNimbusBinary({
+    env: {},
+    platform: "linux",
+    home: "/home/u",
+    exists: () => true,
+  });
+  expect(got).toEqual({ kind: "found", path: "/home/u/.local/bin/nimbus", via: "install-dir" });
+});

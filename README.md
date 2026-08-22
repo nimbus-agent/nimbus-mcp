@@ -92,13 +92,21 @@ The launcher looks for the Nimbus binary in this order:
 1. `NIMBUS_BIN` — an explicit full path to the binary, if set. A `NIMBUS_BIN` that points at a
    non-existent file is reported as an error, never silently ignored.
 2. `PATH` — the first `nimbus` (or `nimbus.exe` on Windows) found on your `PATH`.
-3. Known per-platform install directories, the installer's own output directory first:
-   `%LOCALAPPDATA%\Programs\Nimbus\bin` on Windows, `~/.local/bin` on macOS and Linux, then
-   `/opt/homebrew/bin` and `/usr/local/bin` (macOS) or `/usr/local/bin` and `/usr/bin` (Linux).
+3. Known per-platform install directories, the installer's own output directory first, then the
+   directories the other Nimbus distribution channels write to:
+
+   | Platform | Searched in order |
+   |---|---|
+   | Windows | `%LOCALAPPDATA%\Programs\Nimbus\bin` (installer and `.msi`/winget), then Scoop's shims — `%SCOOP%\shims` or `%USERPROFILE%\scoop\shims`, then `%SCOOP_GLOBAL%\shims` or `%ProgramData%\scoop\shims` |
+   | macOS | `~/.local/bin` (installer and `.pkg`), then `/opt/homebrew/bin` and `/usr/local/bin` (Homebrew) |
+   | Linux | `~/.local/bin` (installer), then `/usr/local/bin` (apt/yum) and `/usr/bin`, then `/home/linuxbrew/.linuxbrew/bin` and `~/.linuxbrew/bin` (Homebrew) |
 
 Step 3 is what carries a GUI-launched editor on macOS, which typically spawns MCP servers without
 your shell's `PATH`. If none of those resolve, the launcher exits with a message naming the fix —
 never a bare exit code.
+
+If you installed Nimbus somewhere else entirely, set `NIMBUS_BIN` rather than waiting for a
+directory to be added here.
 
 ### Environment variables
 
