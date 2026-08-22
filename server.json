@@ -22,6 +22,13 @@
           "isRequired": false,
           "isSecret": false,
           "format": "filepath"
+        },
+        {
+          "name": "NIMBUS_MCP_TIMEOUT_MS",
+          "description": "Optional. How long the Nimbus CLI's MCP adapter waits for an agent brief before returning a clean timeout error; defaults to 60000. Lower it when your client's own MCP transport timeout is shorter, so the tool reports a timeout instead of having the call severed underneath it. Read by the nimbus mcp-server process the launcher execs, which inherits this environment unchanged.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "number"
         }
       ]
     }

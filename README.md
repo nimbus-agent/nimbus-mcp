@@ -16,12 +16,25 @@ run the gateway itself.
 Nimbus; run the regular Nimbus installer first, and keep the gateway configured the way you
 normally use it (the `mcp-server --stdio` command talks to your existing local index).
 
-## Install
+## Scope
 
-> **Not published to npm yet.** `@nimbus-dev/mcp` has no release-please entry and no publish
-> workflow — registry submission is deliberately deferred to a release activity. The `npm` / `npx`
-> instructions below are what you will use **once it is published**; until then, use
-> [Running from a local checkout](#running-from-a-local-checkout).
+Finding a binary and exec'ing it is the whole job, and keeping it that way is what lets this
+package stay MIT while the gateway it launches is AGPL-3.0. Specifically, it does not:
+
+- **Install, bundle, update, or version-check Nimbus.** Use the regular Nimbus installer.
+- **Implement any MCP tools.** The index and agent tools are served by `nimbus mcp-server` in the
+  [Nimbus](https://github.com/nimbus-agent/Nimbus) monorepo (`packages/cli`, `packages/gateway`).
+  A tool that is missing or misbehaving is a bug there, not here.
+- **Parse, filter, proxy, or rewrite the MCP stream.** The child process inherits stdio, and traffic
+  passes through untouched in both directions.
+- **Manage gateway configuration, authentication, or the index itself.** Configure those the way you
+  normally do; this launcher passes your environment through unchanged and otherwise stays out of
+  the way.
+- **Take on runtime dependencies.** `package.json` has `devDependencies` only. That is a licence and
+  supply-chain boundary rather than a style preference — adding a runtime dependency here is a
+  deliberate decision, not a convenience call.
+
+## Install
 
 Run it directly, without a global install, from your MCP client's config (see below), or install it
 explicitly:
@@ -45,11 +58,15 @@ Add `nimbus-mcp` as a command in your MCP client's server configuration, for exa
 }
 ```
 
+Clients that install from the [MCP Registry](https://registry.modelcontextprotocol.io) can find this
+server listed as `io.github.nimbus-agent/nimbus`.
+
 ### Running from a local checkout
 
-Until the package is published, point your MCP client straight at the launcher's entry point in a
-clone of the [Nimbus](https://github.com/nimbus-agent/Nimbus) repository. Use absolute paths — an
-editor-spawned MCP server does not inherit your shell's working directory:
+To run the launcher straight from a clone of
+[this repository](https://github.com/nimbus-agent/nimbus-mcp) — when developing it, or to try a
+change before it is released — point your MCP client at the entry point itself. Use absolute paths:
+an editor-spawned MCP server does not inherit your shell's working directory.
 
 ```json
 {

@@ -93,3 +93,10 @@ Releases are automated by [release-please](https://github.com/googleapis/release
 merged Conventional Commits open a release PR; merging it tags the release
 (`mcp-vX.Y.Z`) and publishes `@nimbus-dev/mcp` to npm with provenance via GitHub OIDC
 (no long-lived npm token).
+
+A third job then publishes the MCP Registry entry from `server.json`, authenticating with
+the same GitHub OIDC token (the registry derives the `io.github.nimbus-agent/*` namespace
+from this repository's owner, so no credential is stored). `server.json`'s two version
+fields are kept in step by release-please's `extra-files` config, and that job *asserts*
+they match the version npm just published rather than rewriting them — an assertion
+failure there means the `extra-files` config needs fixing, not the file.
