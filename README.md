@@ -18,8 +18,10 @@ normally use it (the `mcp-server --stdio` command talks to your existing local i
 
 ## Scope
 
-Finding a binary and exec'ing it is the whole job, and keeping it that way is what lets this
-package stay MIT while the gateway it launches is AGPL-3.0. Specifically, it does not:
+Finding the binary, spawning it with stdio inherited, and staying in the process tree only long
+enough to translate the child's exit status back to the client is the whole job. Keeping it that
+way is what lets this package stay MIT while the gateway it launches is AGPL-3.0. Specifically,
+it does not:
 
 - **Install, bundle, update, or version-check Nimbus.** Use the regular Nimbus installer.
 - **Implement any MCP tools.** The index and agent tools are served by `nimbus mcp-server` in the
