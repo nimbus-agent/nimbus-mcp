@@ -196,3 +196,16 @@ test("the installer directory still wins over linuxbrew when both exist", () => 
   });
   expect(got).toEqual({ kind: "found", path: "/home/u/.local/bin/nimbus", via: "install-dir" });
 });
+
+/**
+ * Every other Windows test supplies `PROGRAMDATA` explicitly, so the built-in default is the one
+ * path in `CANDIDATE_DIRS` that nothing asserts. It is written with `String.raw`; losing that tag
+ * without re-escaping turns `\P` into a plain `P`, so the default silently becomes the relative
+ * `C:ProgramData` and a global Scoop install stops resolving. (A doubled separator is NOT the
+ * failure mode here — `win32.join` collapses it — which is why this pins the whole directory.)
+ */
+test("the default machine-wide Scoop root is the real %ProgramData% path", () => {
+  expect(CANDIDATE_DIRS("win32", String.raw`C:\Users\u`, {})).toContain(
+    String.raw`C:\ProgramData\scoop\shims`,
+  );
+});

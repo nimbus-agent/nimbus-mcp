@@ -79,7 +79,8 @@ export function CANDIDATE_DIRS(
     // Test doubles are plain Records and case-sensitive, so they must match this spelling.
     const scoopUser = env["SCOOP"] ?? join(platform, home, "scoop");
     const scoopGlobal =
-      env["SCOOP_GLOBAL"] ?? join(platform, env["PROGRAMDATA"] ?? "C:\\ProgramData", "scoop");
+      env["SCOOP_GLOBAL"] ??
+      join(platform, env["PROGRAMDATA"] ?? String.raw`C:\ProgramData`, "scoop");
     return [
       join(platform, localAppData, "Programs", "Nimbus", "bin"),
       join(platform, scoopUser, "shims"),
