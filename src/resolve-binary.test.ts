@@ -1,5 +1,35 @@
 import { expect, test } from "bun:test";
-import { CANDIDATE_DIRS, resolveNimbusBinary } from "./resolve-binary.ts";
+import { CANDIDATE_DIRS, explain, type Resolution, resolveNimbusBinary } from "./resolve-binary.ts";
+
+const WIN_HOME = String.raw`C:\Users\u`;
+const WIN_LOCALAPPDATA = String.raw`C:\Users\u\AppData\Local`;
+
+/** The single install-docs link every unresolvable state has to carry. */
+const DOCS_URL = "https://nimbus-agent.dev/docs/install";
+
+/**
+ * Every Windows case below describes the SAME machine — one home directory, one
+ * %LOCALAPPDATA% — and differs only in which file exists and which extra env key is set.
+ * Spelling the four-line input object out at each call site buried that one distinguishing
+ * line. `extraEnv` is spread last, so a case that needs a different %LOCALAPPDATA% can still
+ * say so.
+ *
+ * NOTE ON ENV KEYS: Node's `process.env` on Windows is a case-INSENSITIVE proxy, so at
+ * runtime `env["PROGRAMDATA"]` finds the OS's mixed-case `ProgramData`. The plain objects
+ * these tests pass are ordinary Records and ARE case-sensitive, so they must spell each
+ * key exactly as `resolve-binary.ts` reads it.
+ */
+function resolveOnWindows(
+  exists: (path: string) => boolean,
+  extraEnv: Record<string, string> = {},
+): Resolution {
+  return resolveNimbusBinary({
+    env: { LOCALAPPDATA: WIN_LOCALAPPDATA, ...extraEnv },
+    platform: "win32",
+    home: WIN_HOME,
+    exists,
+  });
+}
 
 test("an explicit NIMBUS_BIN wins over everything", () => {
   const got = resolveNimbusBinary({
@@ -42,12 +72,7 @@ test("falls back to a known install directory", () => {
 });
 
 test("windows looks for nimbus.exe", () => {
-  const got = resolveNimbusBinary({
-    env: { LOCALAPPDATA: "C:\\Users\\u\\AppData\\Local" },
-    platform: "win32",
-    home: "C:\\Users\\u",
-    exists: (p) => p.endsWith("nimbus.exe"),
-  });
+  const got = resolveOnWindows((p) => p.endsWith("nimbus.exe"));
   expect(got.kind).toBe("found");
   if (got.kind === "found") expect(got.path.endsWith("nimbus.exe")).toBe(true);
 });
@@ -92,72 +117,50 @@ test("no candidate directory is a location no installer or distribution channel 
  * `nimbus-agent/homebrew-tap` are the repos serving them. A binary installed that way has
  * to resolve when the MCP client spawns us without the user's shell PATH, which is the
  * whole reason CANDIDATE_DIRS exists.
- *
- * NOTE ON ENV KEYS: Node's `process.env` on Windows is a case-INSENSITIVE proxy, so at
- * runtime `env["PROGRAMDATA"]` finds the OS's mixed-case `ProgramData`. The plain objects
- * these tests pass are ordinary Records and ARE case-sensitive, so they must spell each
- * key exactly as `resolve-binary.ts` reads it.
  */
 
 test("a Scoop per-user shim is found at the default Scoop root", () => {
-  const got = resolveNimbusBinary({
-    env: { LOCALAPPDATA: "C:\\Users\\u\\AppData\\Local" },
-    platform: "win32",
-    home: "C:\\Users\\u",
-    exists: (p) => p === "C:\\Users\\u\\scoop\\shims\\nimbus.exe",
-  });
+  const got = resolveOnWindows((p) => p === String.raw`C:\Users\u\scoop\shims\nimbus.exe`);
   expect(got).toEqual({
     kind: "found",
-    path: "C:\\Users\\u\\scoop\\shims\\nimbus.exe",
+    path: String.raw`C:\Users\u\scoop\shims\nimbus.exe`,
     via: "install-dir",
   });
 });
 
 test("a relocated Scoop root is honoured via $SCOOP", () => {
-  const got = resolveNimbusBinary({
-    env: { LOCALAPPDATA: "C:\\Users\\u\\AppData\\Local", SCOOP: "D:\\scoop" },
-    platform: "win32",
-    home: "C:\\Users\\u",
-    exists: (p) => p === "D:\\scoop\\shims\\nimbus.exe",
+  const got = resolveOnWindows((p) => p === String.raw`D:\scoop\shims\nimbus.exe`, {
+    SCOOP: String.raw`D:\scoop`,
   });
   expect(got.kind).toBe("found");
-  if (got.kind === "found") expect(got.path).toBe("D:\\scoop\\shims\\nimbus.exe");
+  if (got.kind === "found") expect(got.path).toBe(String.raw`D:\scoop\shims\nimbus.exe`);
 });
 
 test("a global Scoop install is found under %ProgramData%", () => {
-  const got = resolveNimbusBinary({
-    env: { LOCALAPPDATA: "C:\\Users\\u\\AppData\\Local", PROGRAMDATA: "C:\\ProgramData" },
-    platform: "win32",
-    home: "C:\\Users\\u",
-    exists: (p) => p === "C:\\ProgramData\\scoop\\shims\\nimbus.exe",
+  const got = resolveOnWindows((p) => p === String.raw`C:\ProgramData\scoop\shims\nimbus.exe`, {
+    PROGRAMDATA: String.raw`C:\ProgramData`,
   });
   expect(got.kind).toBe("found");
-  if (got.kind === "found") expect(got.path).toBe("C:\\ProgramData\\scoop\\shims\\nimbus.exe");
+  if (got.kind === "found") {
+    expect(got.path).toBe(String.raw`C:\ProgramData\scoop\shims\nimbus.exe`);
+  }
 });
 
 test("a relocated global Scoop root is honoured via $SCOOP_GLOBAL", () => {
-  const got = resolveNimbusBinary({
-    env: { LOCALAPPDATA: "C:\\Users\\u\\AppData\\Local", SCOOP_GLOBAL: "E:\\shared\\scoop" },
-    platform: "win32",
-    home: "C:\\Users\\u",
-    exists: (p) => p === "E:\\shared\\scoop\\shims\\nimbus.exe",
+  const got = resolveOnWindows((p) => p === String.raw`E:\shared\scoop\shims\nimbus.exe`, {
+    SCOOP_GLOBAL: String.raw`E:\shared\scoop`,
   });
   expect(got.kind).toBe("found");
-  if (got.kind === "found") expect(got.path).toBe("E:\\shared\\scoop\\shims\\nimbus.exe");
+  if (got.kind === "found") expect(got.path).toBe(String.raw`E:\shared\scoop\shims\nimbus.exe`);
 });
 
 test("the installer directory still wins over a Scoop shim when both exist", () => {
   // The new entries are APPENDED, never inserted: every input that resolves today must
   // resolve to the same path afterwards. Reordering the list would break this.
-  const got = resolveNimbusBinary({
-    env: { LOCALAPPDATA: "C:\\Users\\u\\AppData\\Local" },
-    platform: "win32",
-    home: "C:\\Users\\u",
-    exists: () => true,
-  });
+  const got = resolveOnWindows(() => true);
   expect(got).toEqual({
     kind: "found",
-    path: "C:\\Users\\u\\AppData\\Local\\Programs\\Nimbus\\bin\\nimbus.exe",
+    path: String.raw`C:\Users\u\AppData\Local\Programs\Nimbus\bin\nimbus.exe`,
     via: "install-dir",
   });
 });
@@ -205,7 +208,41 @@ test("the installer directory still wins over linuxbrew when both exist", () => 
  * failure mode here — `win32.join` collapses it — which is why this pins the whole directory.)
  */
 test("the default machine-wide Scoop root is the real %ProgramData% path", () => {
-  expect(CANDIDATE_DIRS("win32", String.raw`C:\Users\u`, {})).toContain(
-    String.raw`C:\ProgramData\scoop\shims`,
-  );
+  expect(CANDIDATE_DIRS("win32", WIN_HOME, {})).toContain(String.raw`C:\ProgramData\scoop\shims`);
+});
+
+/**
+ * `explain()` produces the ONLY thing a user ever sees when the launcher cannot start: an MCP
+ * client surfaces the failed process's stderr and nothing else, and `index.ts` prints exactly
+ * this string before exiting 1. A message that drops the offending path, the env var name or the
+ * docs link turns a one-minute fix into a support round-trip. Nothing called this function until
+ * now — it was the only uncovered code in the package.
+ */
+
+const UNRESOLVABLE: readonly Resolution[] = [
+  { kind: "bad-override", path: "/missing/nimbus" },
+  { kind: "not-found" },
+];
+
+test("every unresolvable state is explained with a link to the install docs", () => {
+  for (const resolution of UNRESOLVABLE) {
+    expect(explain(resolution)).toContain(DOCS_URL);
+  }
+});
+
+test("a bad NIMBUS_BIN is explained by naming the path, the variable and both ways out", () => {
+  const message = explain({ kind: "bad-override", path: String.raw`D:\tools\nimbus.exe` });
+  expect(message).toContain(String.raw`D:\tools\nimbus.exe`);
+  expect(message).toContain("NIMBUS_BIN");
+  expect(message).toContain("Correct it or unset it");
+});
+
+test("a not-found is explained as a missing install, not as a bad override", () => {
+  const message = explain({ kind: "not-found" });
+  expect(message).toContain("Could not find the Nimbus CLI");
+  // The escape hatch is still offered — this is also the state a PATH-less GUI client hits.
+  expect(message).toContain("NIMBUS_BIN");
+  // The bad-override wording quotes a path, and in THIS state there is no path to quote:
+  // printing it would send the user off to correct an env var they never set.
+  expect(message).not.toContain("is set to");
 });
