@@ -67,8 +67,16 @@ coverage figure is not evidence that `index.ts` is untested:
 They look redundant and are not: different artifact, different runtime, and only the smoke
 covers the not-found branch. Deleting either loses real coverage. The not-found branch is
 deliberately absent from the e2e file — making it hermetic means neutralising every
-candidate directory, and the POSIX ones (`/usr/local/bin`, `/usr/bin`, both linuxbrew
-prefixes) are absolute and cannot be redirected by env.
+candidate directory, and the hard-coded POSIX ones cannot be redirected by env at all:
+`/opt/homebrew/bin` and `/usr/local/bin` on darwin, `/usr/local/bin`, `/usr/bin` and
+`/home/linuxbrew/.linuxbrew/bin` on linux. (The remaining POSIX entries — `~/.local/bin`
+on both, and `~/.linuxbrew/bin` on linux — *are* `HOME`-relative and so redirectable;
+it is the absolute ones that make hermeticity impossible.) The CI smoke does not escape
+that either — it neutralises `NIMBUS_BIN`, `PATH` and the `HOME`-relative roots, and for
+the three absolute Linux/darwin directories it still rests on the runner image not
+shipping a `nimbus` there. That residual assumption is acceptable on a hosted runner and
+is *not* acceptable on a developer machine, which is why reproducing the step locally
+needs a container, not just an empty `PATH`.
 
 **Why the smoke's isolation matters:** without it the smoke silently depends on the runner
 having no Nimbus installed. The day anything installs the CLI, resolution succeeds, the
