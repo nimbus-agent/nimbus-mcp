@@ -101,3 +101,10 @@ no credential is stored. `server.json`'s two version fields are kept in step by
 release-please's `extra-files` config, and that job *asserts* they match the version npm
 just published rather than rewriting them — an assertion failure there means the
 `extra-files` config needs fixing, not the file.
+
+That assertion runs after `npm publish`, which cannot be undone after 72 hours, so
+`src/release-metadata.test.ts` makes the same claims earlier: `server.json`'s two versions,
+`.release-please-manifest.json`'s base version, and the `mcpName` ↔ registry-entry identity
+pair. Being an ordinary `bun test` file, it runs on every PR — which is where a release PR
+is reviewed — and again in the publish job *before* the publish step. Both copies are
+deliberate; do not remove one as duplication.

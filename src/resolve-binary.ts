@@ -129,7 +129,7 @@ export function resolveNimbusBinary(input: ResolveInput): Resolution {
   return { kind: "not-found" };
 }
 
-const DOCS = "https://nimbus-agent.dev/docs/install";
+const DOCS = "https://nimbus-agent.dev/user-guide/install/";
 
 /** The message shown for each unresolvable state. Each names the fix, never a bare exit code. */
 export function explain(resolution: Resolution): string {

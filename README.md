@@ -13,8 +13,9 @@ This package is MIT-licensed and does not depend on (or import from) the AGPL-3.
 run the gateway itself.
 
 **Requires the Nimbus gateway to already be installed.** This launcher does not install or bundle
-Nimbus; run the regular Nimbus installer first, and keep the gateway configured the way you
-normally use it (the `mcp-server --stdio` command talks to your existing local index).
+Nimbus; run the regular [Nimbus installer](https://nimbus-agent.dev/user-guide/install/) first, and
+keep the gateway configured the way you normally use it (the `mcp-server --stdio` command talks to
+your existing local index).
 
 ## Scope
 

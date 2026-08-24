@@ -6,13 +6,13 @@ body:
     id: problem
     attributes:
       label: What problem would this solve?
-      description: Describe the app / extension / integration use case or pain point.
+      description: Describe the MCP client and the install channel involved. Note that the launcher's whole job is finding the `nimbus` binary, spawning it as `nimbus mcp-server --stdio`, and translating its exit status — anything about what an MCP **tool** does belongs in the [Nimbus](https://github.com/nimbus-agent/Nimbus) repo.
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
       label: Proposed solution
-      description: What typed method or helper would you like the client to expose? (Remember the single-runtime-dependency constraint — only `@nimbus-dev/sdk`.)
+      description: What should the launcher do differently? (Two hard constraints — ZERO runtime dependencies, and every entry in `CANDIDATE_DIRS` must be either the Nimbus installer's own output directory or a real distribution channel's, never a plausible-looking guess.)
     validations:
       required: false

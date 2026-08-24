@@ -5,10 +5,13 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for the report. For issues in the gateway, connectors, Vault, or the
-        HITL machinery, please use the
-        [Nimbus](https://github.com/nimbus-agent/Nimbus) repository instead — this
-        repo is only the MIT typed IPC client.
+        Thanks for the report. This repo is only the MIT launcher: it finds the
+        `nimbus` binary already installed on your machine and execs it as
+        `nimbus mcp-server --stdio`. For issues in the gateway, connectors, Vault,
+        the HITL machinery, or in an MCP **tool** itself, please use the
+        [Nimbus](https://github.com/nimbus-agent/Nimbus) repository instead. What
+        belongs here: the launcher cannot find an installed Nimbus, it reports a
+        wrong exit code, or a real install channel's directory is missing.
   - type: textarea
     id: what-happened
     attributes:
@@ -17,10 +20,10 @@ body:
     validations:
       required: true
   - type: input
-    id: client-version
+    id: launcher-version
     attributes:
-      label: Client version
-      placeholder: "0.5.0"
+      label: Launcher version (@nimbus-dev/mcp)
+      placeholder: "0.4.0"
     validations:
       required: true
   - type: input
@@ -34,5 +37,5 @@ body:
     id: details
     attributes:
       label: Relevant details
-      description: Minimal repro, stack trace, or the failing type/assertion.
+      description: Minimal repro, the message the launcher printed, and your MCP client's server config for it.
       render: shell

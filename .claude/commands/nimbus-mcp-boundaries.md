@@ -50,15 +50,40 @@ wires `exit`. Importing it from a test **executes it** — spawning a process an
 potentially calling `process.exit`. That is why it carries `sonar.coverage.exclusions`
 and why the monorepo exempted the same file while it lived there.
 
-Do not "improve coverage" by importing it. The real coverage for that file is the CI bin
-smoke in `ci.yml`, which runs the built `dist/index.js` under Node with `HOME` and
-`LOCALAPPDATA` pointed at empty temp dirs and asserts exit 1 plus the not-found message.
+Do not "improve coverage" by importing it. It is covered two ways that do not import it,
+and **neither moves a coverage number** — the Sonar exclusion still stands, so a flat
+coverage figure is not evidence that `index.ts` is untested:
 
-**Why the isolation matters:** without it the smoke silently depends on the runner
+- `src/launcher-e2e.test.ts` runs it as a real child process (`bun src/index.ts`) against
+  a fake `nimbus` binary. This is where the spawn argv (`mcp-server --stdio`),
+  `stdio: "inherit"`, the exit-status wiring, and *which stream a diagnostic goes to* are
+  pinned. It runs on every PR, on all three OSes.
+- The CI bin smoke in `ci.yml` runs the **built** `dist/index.js` under **Node**, with
+  `NIMBUS_BIN` unset and `PATH`, `HOME`/`USERPROFILE` and `LOCALAPPDATA` all pointed at
+  empty temp dirs, asserting exit 1 plus the not-found message. It greps for the literal
+  `Could not find the Nimbus CLI`, so rewording that sentence in `explain()` reds CI in a
+  workflow file, not in a test — by design, but only obvious once you know.
+
+They look redundant and are not: different artifact, different runtime, and only the smoke
+covers the not-found branch. Deleting either loses real coverage. The not-found branch is
+deliberately absent from the e2e file — making it hermetic means neutralising every
+candidate directory, and the POSIX ones (`/usr/local/bin`, `/usr/bin`, both linuxbrew
+prefixes) are absolute and cannot be redirected by env.
+
+**Why the smoke's isolation matters:** without it the smoke silently depends on the runner
 having no Nimbus installed. The day anything installs the CLI, resolution succeeds, the
 launcher spawns an MCP server that waits on stdio, and the step fails as a *timeout*
 rather than a message mismatch. The empty-dir setup is what keeps that from being a
 latent trap.
+
+**All three inputs have to be neutralised, and `PATH` was the one that was missed.**
+Until 2026-08-24 the step scrubbed only `NIMBUS_BIN` and the directory roots — but `PATH`
+is searched *before* `CANDIDATE_DIRS`, so the "clean runner" assumption survived in the
+branch that runs first. Reproduce it on any machine that has Nimbus installed: extract
+that step's `run:` block and execute it. The pre-fix version prints `exit=0` and an empty
+message and stops exercising the not-found branch entirely; the current one prints
+`exit=1` and the explanation. Because `PATH` is now empty for the child, `node` is invoked
+by absolute path (`command -v node`) — do not "simplify" that back to a bare `node`.
 
 ## 3. Zero dependencies is a licence boundary, not a style rule
 
@@ -87,6 +112,14 @@ the boundary reasserting itself.
   rewrite would mask a broken `extra-files` config and ship a registry entry pointing at
   a version nobody can install. If that assert fails, fix the config — do not patch the
   file in CI.
+- **That assertion runs twice, on purpose, and the earlier copy is the useful one.**
+  `publish-registry`'s check happens AFTER `npm publish`, which cannot be undone after 72
+  hours — it reports damage rather than preventing it. `src/release-metadata.test.ts`
+  makes the same claims (plus the `.release-please-manifest.json` base version and the
+  `mcpName` ↔ `server.json` identity pair) inside `bun test`, so they run on every PR and
+  again in the publish job *before* the publish step. Do not delete one as duplication:
+  the late one is the last line of defence if someone bypasses CI, the early one is the
+  only one that can still change the outcome.
 - **Publishing to the MCP Registry from CI is credential-free; doing it by hand is not.**
   `login github-oidc` works because the OIDC subject is this repo, so the org namespace
   follows from the repo's owner. Interactively, it cannot: the registry's login app

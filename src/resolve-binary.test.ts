@@ -5,7 +5,7 @@ const WIN_HOME = String.raw`C:\Users\u`;
 const WIN_LOCALAPPDATA = String.raw`C:\Users\u\AppData\Local`;
 
 /** The single install-docs link every unresolvable state has to carry. */
-const DOCS_URL = "https://nimbus-agent.dev/docs/install";
+const DOCS_URL = "https://nimbus-agent.dev/user-guide/install/";
 
 /**
  * Every Windows case below describes the SAME machine — one home directory, one

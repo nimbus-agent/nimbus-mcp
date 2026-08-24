@@ -126,7 +126,7 @@ test(
     const { code, stdout, stderr } = await runLauncher(missing);
     expect(code).toBe(1);
     expect(stderr).toContain(missing);
-    expect(stderr).toContain("https://nimbus-agent.dev/docs/install");
+    expect(stderr).toContain("https://nimbus-agent.dev/user-guide/install/");
     // stdout is the MCP JSON-RPC channel. A diagnostic here is a protocol violation, not a
     // cosmetic slip: the client parses the first thing it reads as a frame.
     expect(stdout).toBe("");
