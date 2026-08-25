@@ -73,9 +73,11 @@ jobs:
       # The launcher is a BIN, not a library — there are no named exports to
       # require-smoke the way the sibling client package does. The equivalent
       # end-to-end check is that the built entry actually runs and takes the
-      # not-found branch: a CI runner has no `nimbus` on PATH, so resolution must
-      # fail cleanly with the explain() message and exit 1, rather than throwing
-      # an unhandled error or hanging on a spawn that never happens.
+      # not-found branch: resolution must fail cleanly with the explain() message
+      # and exit 1, rather than throwing an unhandled error or hanging on a spawn
+      # that never happens. That branch is FORCED by the step below, which
+      # neutralises every input resolution reads; do not weaken it back into an
+      # assumption that the runner has no `nimbus` on PATH.
       - name: Setup Node (bin smoke)
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -85,16 +87,35 @@ jobs:
         shell: bash
         run: |
           set -uo pipefail
-          # Point HOME and LOCALAPPDATA at empty directories rather than relying on
-          # the runner simply not having Nimbus installed. CANDIDATE_DIRS searches
-          # those roots independently of PATH, so an implicit "clean runner"
-          # assumption would silently flip this to the FOUND branch the day any
-          # other step installs the CLI — and the found branch spawns an MCP server
-          # that waits on stdio, so the failure would be a timeout, not a message.
+          # Neutralise ALL THREE inputs resolution reads, rather than relying on the
+          # runner simply not having Nimbus installed: an implicit "clean runner"
+          # assumption would silently flip this to the FOUND branch the day any other
+          # step installs the CLI — and the found branch spawns an MCP server that
+          # waits on stdio, so the failure would be a 15-minute timeout, not a message.
+          #
+          #   * NIMBUS_BIN — unset.
+          #   * HOME / USERPROFILE / LOCALAPPDATA — empty dirs, because CANDIDATE_DIRS
+          #     searches those roots independently of PATH.
+          #   * PATH — an empty dir too. This was the half left open: PATH is searched
+          #     BEFORE the candidate directories, so scrubbing only the roots still
+          #     depended on the runner having no `nimbus` on PATH. Verified by running
+          #     this exact command on a developer machine that does: with PATH intact
+          #     it exits 0 with no output (the spawned server read EOF on stdin), i.e.
+          #     it silently stops testing the not-found branch at all.
+          #
+          # `node` is therefore invoked by ABSOLUTE path — with PATH emptied it can no
+          # longer be found by name. Only the `env` child is affected; the rest of this
+          # step keeps the normal PATH.
           iso="$(mktemp -d)"
-          mkdir -p "${iso}/home" "${iso}/lad"
-          out="$(env -u NIMBUS_BIN HOME="${iso}/home" USERPROFILE="${iso}/home" \
-                 LOCALAPPDATA="${iso}/lad" node dist/index.js 2>&1)" && code=0 || code=$?
+          mkdir -p "${iso}/home" "${iso}/lad" "${iso}/bin"
+          node_bin="$(command -v node)"
+          if [ -z "${node_bin}" ]; then
+            echo "::error::could not resolve an absolute path to node"
+            exit 1
+          fi
+          out="$(env -u NIMBUS_BIN PATH="${iso}/bin" HOME="${iso}/home" \
+                 USERPROFILE="${iso}/home" LOCALAPPDATA="${iso}/lad" \
+                 "${node_bin}" dist/index.js 2>&1)" && code=0 || code=$?
           echo "exit=${code}"
           echo "${out}"
           if [ "${code}" != "1" ]; then

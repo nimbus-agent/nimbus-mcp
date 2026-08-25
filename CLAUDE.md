@@ -8,9 +8,14 @@ Nimbus index and its agents to any MCP client. It does no work itself: it locate
 then passes stdio straight through.
 
 **The MCP server is not in this repo.** It lives in the AGPL monorepo at
-`packages/cli/src/commands/mcp-server.ts` + `packages/cli/src/mcp/`, and serves six
-read-only index tools plus eleven agent tools. This package only knows how to *find*
-the binary — never how to run the gateway.
+`packages/cli/src/commands/mcp-server.ts` + `packages/cli/src/mcp/`, and serves **21**
+tools: nine read-only index tools (`INDEX_TOOL_SPECS`) plus twelve agent-classified ones
+(`AGENT_CLASSIFIED_TOOL_SPECS` — the eleven `AGENT_TOOL_SPECS` entries plus `peekWhy`).
+This package only knows how to *find* the binary — never how to run the gateway.
+Re-derive that split from `packages/cli/src/mcp/adapter.ts` before restating it: only the
+TOTAL is pinned over there (`adapter.test.ts`: `expect(TOOL_SPECS).toHaveLength(21)`), so
+the split drifts silently — "six index tools" was stated here, and is still stated in
+`adapter.ts`'s own `buildMcpServer` doc comment, long after the list grew to nine.
 
 ## Stack
 
@@ -57,6 +62,17 @@ bun run build          # dist/index.js (ESM, node target)
 - **Never invent a candidate directory.** Every entry in `CANDIDATE_DIRS` is either the
   installer's own output or a real distribution channel's. `~/.nimbus/bin` was invented
   once by a plan and is now named in a test specifically to keep it from drifting back in.
+- **The `DOCS` URL in `src/resolve-binary.ts` is shipped user-facing text.** `explain()`
+  prints it to every user whose install cannot be resolved — the one moment this package
+  has their attention. It shipped as `https://nimbus-agent.dev/docs/install` in 0.2.0,
+  0.3.0 and 0.4.0; that path is a **404** (the live page is `/user-guide/install/`, which
+  is what the monorepo's own docs link to). **No workflow and no test in this repo checks
+  that a documentation URL resolves** — there is no link checker here, and `src/` makes no
+  network call at all — so probe one yourself before writing it down —
+  `curl -s -o /dev/null -w '%{http_code}' -L <url>`; the site serves real 404s, so the
+  check means something. The URL's two verbatim copies in `resolve-binary.test.ts` and
+  `launcher-e2e.test.ts` are deliberate — a test that imports the constant it asserts is a
+  tautology — so changing it means three edits in one commit.
 
 ## Notes
 

@@ -4,10 +4,11 @@
 
 ## Checklist
 
+- [ ] `bun run build` succeeds — **first**, matching `ci.yml`: the CI smoke steps run the built `dist/index.js`, and `dist/` is gitignored
 - [ ] `bun run typecheck` passes
 - [ ] `bun run lint` passes
 - [ ] `bun run test` passes (tests added/updated for behavior changes)
-- [ ] `bun run build` succeeds
-- [ ] No new runtime dependency (the only runtime dep is `@nimbus-dev/sdk`, consumed as the published `^1.6.0`; the floor is asserted in `scripts/check-package-identity.test.ts`)
+- [ ] No new runtime dependency — this package has **zero** by design (`package.json` declares `devDependencies` only); that is the MIT-vs-AGPL licence and supply-chain boundary, not a preference
 - [ ] No `any` (used `unknown` + a type guard for external/cross-boundary data)
-- [ ] Exported-type changes are reflected in the Conventional Commit type (semver)
+- [ ] No invented `CANDIDATE_DIRS` entry — every one is either the Nimbus installer's own output directory or a real distribution channel's, appended at the END of its platform's list
+- [ ] Behaviour changes are reflected in the Conventional Commit type. The public surface here is the **bin's** behaviour — resolution order, `CANDIDATE_DIRS`, exit status, the messages `explain()` prints — not an exported type: `package.json` declares only `bin`, with no `main`/`exports`/`types`, so nothing in `src/` is importable by a consumer
