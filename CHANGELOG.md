@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/nimbus-agent/nimbus-mcp/compare/mcp-v0.4.0...mcp-v0.4.1) (2026-08-25)
+
+
+### Bug Fixes
+
+* the install link shown when Nimbus cannot be found was a 404 ([#9](https://github.com/nimbus-agent/nimbus-mcp/issues/9)) ([0adda83](https://github.com/nimbus-agent/nimbus-mcp/commit/0adda8337802534a181f5decb514d6de9c6ed542))
+
 ## [0.4.0](https://github.com/nimbus-agent/nimbus-mcp/compare/mcp-v0.3.0...mcp-v0.4.0) (2026-08-22)
 
 
