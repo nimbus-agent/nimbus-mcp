@@ -84,3 +84,8 @@ bun run build          # dist/index.js (ESM, node target)
 - `mcpName` in `package.json` (`io.github.nimbus-agent/nimbus`) is the MCP Registry's npm
   ownership check. It is verified against the *published tarball*, so it must ship in the
   package — changing it means cutting a new npm version.
+- Dependencies: no Dependabot (retired 2026-10) and no other update bot — a maintainer
+  updates them in periodic bulk PRs. The absence of `.github/dependabot.yml` is deliberate;
+  do not re-add it. `CONTRIBUTING.md` § *Updating dependencies* lists what must move
+  together (`bun.lock`, Biome's `$schema`, the CodeQL action pair, the Bun version, the
+  `mcp-publisher` digest).

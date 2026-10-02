@@ -251,9 +251,9 @@ jobs:
       # — GitHub's release-asset API (`.assets[].digest`) and a local
       # `sha256sum` of the downloaded artifact — and both agreed. Bumping
       # MCP_PUBLISHER_VERSION means re-deriving it; a stale digest fails the step
-      # rather than silently accepting a new binary. Nothing bumps this
-      # automatically: dependabot does not track release assets fetched by a run
-      # step.
+      # rather than silently accepting a new binary. Updating the action pins
+      # never reaches it: this is a release asset fetched by a run step, not a
+      # `uses:` reference, so it moves only when someone bumps it on purpose.
       - name: Install mcp-publisher (pinned to a literal digest)
         env:
           MCP_PUBLISHER_VERSION: v1.8.1

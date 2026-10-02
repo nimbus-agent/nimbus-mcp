@@ -87,6 +87,44 @@ distribution channel — open an issue in this repo instead. Vulnerabilities go 
   build-machine path is baked into `dist/index.js`. SonarCloud runs
   `bun run test:coverage` as a blocking gate.
 
+## Updating dependencies
+
+There is no update bot — Dependabot was retired in October 2026. A maintainer updates
+dependencies in periodic bulk PRs: `bun outdated`, edit the ranges in `package.json`,
+`bun install`, then run the full check list under *Pull requests*. Dependabot *alerts*
+stay on, so a vulnerable dependency still surfaces in the Security tab, but nothing opens
+a fix PR for it: answer an alert with an out-of-cycle update PR.
+
+These have to move together:
+
+- **`bun.lock` with `package.json` — and only through Bun.** npm neither reads nor writes
+  `bun.lock`, so a change made with npm leaves the lockfile stale and CI's
+  `bun install --frozen-lockfile` fails with "lockfile had changes, but lockfile is
+  frozen". Commit both files in the same PR.
+- **`@biomejs/biome` with `biome.json`'s `$schema`.** The schema URL names a Biome
+  version. A mismatch is reported as *info*, not an error, so `bun run lint` stays green
+  while it drifts; set the URL to the installed version (`bunx biome --version`).
+- **`github/codeql-action/init` with `github/codeql-action/analyze`.** Both must carry the
+  same commit SHA, or CodeQL fails with "Loaded a configuration file for version X, but
+  running version Y". Actions are pinned to full commit SHAs, most with the version in a
+  trailing comment: bump the comment together with the SHA, in every workflow that uses
+  the action.
+- **The Bun version.** `.bun-version` and the `bun-version:` input in `ci.yml`,
+  `release.yml` and `sonar.yml` name the same release, and nothing checks that they
+  agree; change all four together.
+- **`mcp-publisher` in `release.yml`.** It is a release asset fetched by a `run:` step and
+  pinned to a literal SHA-256, not a `uses:` reference, so updating the action pins never
+  reaches it. Bumping `MCP_PUBLISHER_VERSION` means re-deriving `MCP_PUBLISHER_SHA256` the
+  way the comment above that step describes.
+
+A bulk update touches `devDependencies` only — it is never the place to add a runtime
+dependency (see *Architecture notes*). If Dependabot is ever reinstated, read
+[#11](https://github.com/nimbus-agent/nimbus-mcp/pull/11) first: its ecosystem must be
+`bun`, not `npm`, for the lockfile reason above, and the `cla` job needs its
+`dependabot[bot]` skip back — Dependabot-triggered runs get no Actions secrets, even on
+`pull_request_target`, so the CLA token mint fails and the required `cla` check stays red
+unless someone re-runs it by hand.
+
 ## Releases
 
 Releases are automated by [release-please](https://github.com/googleapis/release-please):
