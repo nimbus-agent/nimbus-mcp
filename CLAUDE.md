@@ -96,4 +96,5 @@ bun run build          # dist/index.js (ESM, node target)
   updates them in periodic bulk PRs. The absence of `.github/dependabot.yml` is deliberate;
   do not re-add it. `CONTRIBUTING.md` § *Updating dependencies* lists what must move
   together (`bun.lock`, Biome's `$schema`, the CodeQL action pair, the Bun version, the
-  `mcp-publisher` digest), and why transitive dependencies need a fresh lockfile resolve.
+  `mcp-publisher` digest), and how to move transitive dependencies: a bare `bun update`
+  on the pinned Bun, never a deleted `bun.lock`.
