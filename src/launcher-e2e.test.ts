@@ -43,6 +43,30 @@ function tempDir(): string {
   return dir;
 }
 
+interface CapturedRun {
+  readonly code: number;
+  readonly stdout: string;
+  readonly stderr: string;
+}
+
+/**
+ * Runs `argv` to completion with no stdin, capturing the two output streams SEPARATELY — for the
+ * launcher the split is half of what these tests assert, so a combined `2>&1` capture would
+ * defeat them.
+ */
+async function runCaptured(
+  argv: string[],
+  options: { readonly cwd: string; readonly env?: Record<string, string | undefined> },
+): Promise<CapturedRun> {
+  const proc = Bun.spawn(argv, { ...options, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+  const [stdout, stderr, code] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { code, stdout, stderr };
+}
+
 /**
  * A stand-in for the real CLI: it reports the argv it was handed on stdout and exits with a
  * known status. The launcher spawns the resolved path with no shell, so the double must be a
@@ -73,18 +97,13 @@ async function fakeNimbus(exitCode: number): Promise<string> {
     `process.stdout.write(["FAKE-NIMBUS", ...process.argv.slice(2)].join(" ") + "\\n");\n` +
       `process.exitCode = ${exitCode};\n`,
   );
-  const build = Bun.spawn([process.execPath, "build", "--compile", source, "--outfile", path], {
-    cwd: dir,
-    stdin: "ignore",
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const [out, err, code] = await Promise.all([
-    new Response(build.stdout).text(),
-    new Response(build.stderr).text(),
-    build.exited,
-  ]);
-  if (code !== 0) throw new Error(`bun build --compile exited ${code}:\n${out}${err}`);
+  const build = await runCaptured(
+    [process.execPath, "build", "--compile", source, "--outfile", path],
+    { cwd: dir },
+  );
+  if (build.code !== 0) {
+    throw new Error(`bun build --compile exited ${build.code}:\n${build.stdout}${build.stderr}`);
+  }
   return path;
 }
 
@@ -97,32 +116,16 @@ function unusableNimbus(): string {
   return path;
 }
 
-interface LaunchResult {
-  readonly code: number;
-  readonly stdout: string;
-  readonly stderr: string;
-}
-
 /**
- * Runs the bin entry with `NIMBUS_BIN` pointed at `nimbusBin`, capturing the two output streams
- * SEPARATELY — the split is half of what these tests assert, so a combined `2>&1` capture would
- * defeat them. The override short-circuits `CANDIDATE_DIRS` entirely, which is what keeps these
- * independent of whether the machine running them has Nimbus installed.
+ * Runs the bin entry with `NIMBUS_BIN` pointed at `nimbusBin`. The override short-circuits
+ * `CANDIDATE_DIRS` entirely, which is what keeps these independent of whether the machine running
+ * them has Nimbus installed.
  */
-async function runLauncher(nimbusBin: string): Promise<LaunchResult> {
-  const proc = Bun.spawn([process.execPath, LAUNCHER], {
+function runLauncher(nimbusBin: string): Promise<CapturedRun> {
+  return runCaptured([process.execPath, LAUNCHER], {
     cwd: tmpdir(),
     env: { ...process.env, NIMBUS_BIN: nimbusBin },
-    stdin: "ignore",
-    stdout: "pipe",
-    stderr: "pipe",
   });
-  const [stdout, stderr, code] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  return { code, stdout, stderr };
 }
 
 test(
