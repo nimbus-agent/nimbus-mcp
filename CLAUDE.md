@@ -12,14 +12,18 @@ then passes stdio straight through.
 tools: nine read-only index tools (`INDEX_TOOL_SPECS`) plus twelve agent-classified ones
 (`AGENT_CLASSIFIED_TOOL_SPECS` — the eleven `AGENT_TOOL_SPECS` entries plus `peekWhy`).
 This package only knows how to *find* the binary — never how to run the gateway.
-Re-derive that split from `packages/cli/src/mcp/adapter.ts` before restating it: only the
-TOTAL is pinned over there (`adapter.test.ts`: `expect(TOOL_SPECS).toHaveLength(21)`), so
-the split drifts silently — "six index tools" was stated here, and is still stated in
-`adapter.ts`'s own `buildMcpServer` doc comment, long after the list grew to nine.
+Re-derive those numbers from `packages/cli/src/mcp/adapter.ts` before restating them.
+`adapter.test.ts` pins the total (21), the nine index-tool names and the agent-classified
+count (12), but nothing pins prose: this file said "six index tools" long after the list
+grew to nine.
 
 ## Stack
 
-- **Runtime:** Bun v1.2+ · **Language:** TypeScript 7.x strict · **Linter:** Biome
+- **Runtime:** Bun, at the release pinned in `.bun-version` (CI installs the same one) ·
+  **Language:** TypeScript 7.x strict · **Linter:** Biome
+- **The published bin runs under Node, not Bun.** It is built with `--target node` behind a
+  `#!/usr/bin/env node` shebang, and CI smoke-tests the built `dist/index.js` under Node.
+  Bun is only the dev and test toolchain.
 - **Zero runtime dependencies.** Not "few" — zero. `package.json` has `devDependencies`
   only. Adding a runtime dep is a licence and supply-chain decision, not a convenience call.
 - **No `any`** — use `unknown` for external data; strict mode is non-negotiable.
@@ -62,6 +66,10 @@ bun run build          # dist/index.js (ESM, node target)
 - **Never invent a candidate directory.** Every entry in `CANDIDATE_DIRS` is either the
   installer's own output or a real distribution channel's. `~/.nimbus/bin` was invented
   once by a plan and is now named in a test specifically to keep it from drifting back in.
+- **`CANDIDATE_DIRS` is append-only.** A new channel goes at the END of its platform's
+  list, so adding one can only turn a not-found into a found — never redirect an install
+  that already resolves. Two tests ("the installer directory still wins over …") pin the
+  installer directory's first place; the order after it rests on review.
 - **The `DOCS` URL in `src/resolve-binary.ts` is shipped user-facing text.** `explain()`
   prints it to every user whose install cannot be resolved — the one moment this package
   has their attention. It shipped as `https://nimbus-agent.dev/docs/install` in 0.2.0,
@@ -88,4 +96,4 @@ bun run build          # dist/index.js (ESM, node target)
   updates them in periodic bulk PRs. The absence of `.github/dependabot.yml` is deliberate;
   do not re-add it. `CONTRIBUTING.md` § *Updating dependencies* lists what must move
   together (`bun.lock`, Biome's `$schema`, the CodeQL action pair, the Bun version, the
-  `mcp-publisher` digest).
+  `mcp-publisher` digest), and why transitive dependencies need a fresh lockfile resolve.

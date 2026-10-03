@@ -1,4 +1,4 @@
-# CodeRabbit configuration — https://docs.coderabbit.ai/configure/
+# CodeRabbit configuration — https://docs.coderabbit.ai/getting-started/yaml-configuration
 # The CodeRabbit GitHub App must have access to this repository (org-level
 # install on nimbus-agent, or add nimbus-mcp to the app's repo list).
 language: en-US
@@ -26,9 +26,12 @@ reviews:
         preference; inline helpers instead); any path literal added to
         CANDIDATE_DIRS that is not either the installer's own output directory
         or a real distribution channel's (invented fallbacks like `~/.nimbus/bin`
-        are explicitly rejected); and any change to an exported type that isn't
-        reflected as a semver-relevant change (Conventional Commits drive
-        release-please).
+        are explicitly rejected), or that is inserted anywhere but the END of its
+        platform's list (the order is append-only); and any change to the bin's
+        behaviour — resolution order, CANDIDATE_DIRS, exit status, the messages
+        explain() prints — that its Conventional Commit type does not reflect
+        (release-please derives the version from it). package.json declares only
+        `bin`, with no main/exports/types, so no exported type is public surface.
     - path: "src/installer-contract.ts"
       instructions: >-
         These two literals are vendored from `scripts/install/lib/paths.ts`

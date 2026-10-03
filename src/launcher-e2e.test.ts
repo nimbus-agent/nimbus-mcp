@@ -16,10 +16,10 @@ import { join } from "node:path";
  *
  * CI's `bash` smoke step covers the not-found branch against the BUILT bundle; that branch is
  * deliberately not repeated here, because making it hermetic means neutralising every candidate
- * directory, and three of them are hard-coded absolute paths that no env var can point elsewhere:
- * `/usr/local/bin` and `/usr/bin` on linux plus `/home/linuxbrew/.linuxbrew/bin`, and
- * `/opt/homebrew/bin` on darwin. (`~/.local/bin` and `~/.linuxbrew/bin` follow `HOME` and would
- * be redirectable; it is the absolute ones that make a hermetic not-found impossible here.)
+ * directory, and four of them are hard-coded absolute paths that no env var can point elsewhere:
+ * `/usr/local/bin` on both POSIX platforms, `/usr/bin` and `/home/linuxbrew/.linuxbrew/bin` on
+ * linux, and `/opt/homebrew/bin` on darwin. (`~/.local/bin` and `~/.linuxbrew/bin` follow `HOME`
+ * and would be redirectable; it is the absolute ones that make a hermetic not-found impossible.)
  */
 
 const LAUNCHER = join(import.meta.dir, "index.ts");

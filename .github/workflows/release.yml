@@ -162,21 +162,22 @@ jobs:
           cd "$tmp"
           npm init -y >/dev/null
           # A publish is followed by TWO independent propagation lags, and each has
-          # already turned a good release red:
+          # already turned a good release of the sibling @nimbus-dev/client red
+          # (same publish pipeline; the versions below are that package's):
           #
           #   * packument lag — `npm install pkg@<v>` fails ETARGET "No matching
           #     version found" while the version is still propagating. That is what
-          #     made 0.6.1's publish job red: all five attempts failed this way
+          #     made its 0.6.1 publish job red: all five attempts failed this way
           #     inside a ~50 s budget, and the package was fine minutes later.
           #   * attestation lag — the tarball installs fine while
           #     `/-/npm/v1/attestations/...` still 404s, so `npm audit signatures`
           #     fails on a package that is live and correctly attested. (That shipped
-          #     0.6.0's publish job red.)
+          #     its 0.6.0 publish job red.)
           #
           # Install and audit therefore retry TOGETHER, and `--prefer-online` is
           # required: npm caches the negative packument, so plain retries re-read the
           # same cached 404 rather than asking the registry again — which is why
-          # 0.6.1's five attempts all failed identically.
+          # those five 0.6.1 attempts all failed identically.
           verified=""
           for attempt in 1 2 3 4 5 6 7 8; do
             if npm install "@nimbus-dev/mcp@${PUBLISHED_VERSION}" \

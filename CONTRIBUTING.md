@@ -4,7 +4,8 @@ Thanks for helping improve the Nimbus MCP launcher!
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) v1.2+
+- [Bun](https://bun.sh), at the release pinned in [`.bun-version`](./.bun-version) — CI
+  installs the same one
 
 ## Setup
 
@@ -47,6 +48,9 @@ bun run build          # bun build → dist/index.js (ESM, node target)
 - **Never invent a candidate directory.** Every entry in `CANDIDATE_DIRS` is either the
   installer's own output or a real distribution channel's. `~/.nimbus/bin` was invented
   once and is now named in a test to keep it from drifting back in.
+- **Append to `CANDIDATE_DIRS`; never insert.** A new channel goes at the END of its
+  platform's list, so adding one can only turn a not-found into a found — never redirect
+  an install that already resolves.
 
 ## Relationship to other repos
 
@@ -60,8 +64,8 @@ bun run build          # bun build → dist/index.js (ESM, node target)
 Most questions about this package turn out to be boundary questions: the behaviour you
 want to change is probably in the monorepo, not here. Tool definitions, agent briefs,
 index queries, credentials and the HITL gate are all gateway-side. What lives here is
-binary resolution, argument passing, and exit-status translation — roughly two hundred
-lines.
+binary resolution, argument passing, and exit-status translation — four source files,
+under 250 lines including comments.
 
 Ask on [Nimbus Discussions](https://github.com/nimbus-agent/Nimbus/discussions); the
 gateway repo keeps that board on behalf of every repo in the family, so a question
@@ -94,6 +98,12 @@ dependencies in periodic bulk PRs: `bun outdated`, edit the ranges in `package.j
 `bun install`, then run the full check list under *Pull requests*. Dependabot *alerts*
 stay on, so a vulnerable dependency still surfaces in the Security tab, but nothing opens
 a fix PR for it: answer an alert with an out-of-cycle update PR.
+
+That procedure only reaches direct dependencies. `bun outdated` lists nothing else, and
+`bun install`, `bun install --force` and a bare `bun update` all keep every transitive
+dependency at its locked version — the October 2026 update found `@types/node` and
+`undici-types` behind that way. To move them, re-resolve the lockfile: delete `bun.lock`,
+run `bun install`, and review the lockfile diff before committing it.
 
 These have to move together:
 
