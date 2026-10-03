@@ -63,10 +63,11 @@ coverage figure is not evidence that `index.ts` is untested:
   so does Bun from 1.4. The `.cmd` double the test used until October 2026 passed only on
   Bun 1.3's leniency; keep it compiled.
 - The CI bin smoke in `ci.yml` runs the **built** `dist/index.js` under **Node**, with
-  `NIMBUS_BIN` unset and `PATH`, `HOME`/`USERPROFILE` and `LOCALAPPDATA` all pointed at
-  empty temp dirs, asserting exit 1 plus the not-found message. It greps for the literal
-  `Could not find the Nimbus CLI`, so rewording that sentence in `explain()` reds CI in a
-  workflow file, not in a test — by design, but only obvious once you know.
+  `NIMBUS_BIN` unset and `PATH`, `HOME`/`USERPROFILE`, `LOCALAPPDATA` and
+  `SCOOP`/`SCOOP_GLOBAL` all pointed at empty temp dirs, asserting exit 1 plus the
+  not-found message. It greps for the literal `Could not find the Nimbus CLI`, so
+  rewording that sentence in `explain()` reds CI in a workflow file, not in a test — by
+  design, but only obvious once you know.
 
 They look redundant and are not: different artifact, different runtime, and only the smoke
 covers the not-found branch. Deleting either loses real coverage. The not-found branch is
@@ -77,13 +78,15 @@ candidate directory, and the hard-coded POSIX ones cannot be redirected by env a
 on both, and `~/.linuxbrew/bin` on linux — *are* `HOME`-relative and so redirectable;
 it is the absolute ones that make hermeticity impossible.) The CI smoke does not escape
 that either — it neutralises `NIMBUS_BIN`, `PATH` and the roots under
-`HOME`/`USERPROFILE`/`LOCALAPPDATA`, and still rests on the runner image not shipping a
-`nimbus` in the four absolute Linux/darwin directories above. The Windows leg has a
-residual of its own: `SCOOP`, `SCOOP_GLOBAL` and `PROGRAMDATA` pass through unchanged, so
-the machine-wide Scoop shims (`C:\ProgramData\scoop\shims` by default) are searched for
-real. Those residual assumptions are acceptable on a hosted runner and are *not*
-acceptable on a developer machine, which is why reproducing the step locally needs a
-container, not just an empty `PATH`.
+`HOME`/`USERPROFILE`/`LOCALAPPDATA`/`SCOOP`/`SCOOP_GLOBAL`, and still rests on the runner
+image not shipping a `nimbus` in the four absolute Linux/darwin directories above. That
+residual assumption is acceptable on a hosted runner and is *not* acceptable on a
+developer machine, which is why reproducing the step locally on Linux or macOS needs a
+container, not just an empty `PATH`. On Windows every candidate root is an env var the
+step redirects, so there it is fully hermetic and runs as-is in Git Bash — but only since
+October 2026: Scoop resolution (#7) added `SCOOP` and `SCOOP_GLOBAL` as inputs without
+adding them to the step. `SCOOP_GLOBAL` has to be *set*, not left unset, because unset it
+falls back to `%ProgramData%\scoop`, which is machine-wide.
 
 **Why the smoke's isolation matters:** without it the smoke silently depends on the runner
 having no Nimbus installed. The day anything installs the CLI, resolution succeeds, the
@@ -95,11 +98,12 @@ latent trap.
 Until #9 (merged 2026-08-25) the step scrubbed only `NIMBUS_BIN` and the directory
 roots — but `PATH` is searched *before* `CANDIDATE_DIRS`, so the "clean runner"
 assumption survived in the branch that runs first. Reproduce it on any machine that has
-Nimbus installed: extract that step's `run:` block and execute it. The pre-fix version
-prints `exit=0` and an empty message and stops exercising the not-found branch entirely;
-the current one prints `exit=1` and the explanation. Because `PATH` is now empty for the
-child, `node` is invoked by absolute path (`command -v node`) — do not "simplify" that
-back to a bare `node`.
+`nimbus` on its `PATH` and not in one of the absolute directories above: extract that
+step's `run:` block and execute it. The pre-fix version prints `exit=0` and an empty
+message and stops exercising the not-found branch entirely; the current one prints
+`exit=1` and the explanation. Because `PATH` is now empty for the child, `node` is
+invoked by absolute path (`command -v node`) — do not "simplify" that back to a bare
+`node`.
 
 ## 3. Zero dependencies is a licence boundary, not a style rule
 
