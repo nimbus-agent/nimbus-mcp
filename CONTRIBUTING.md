@@ -102,12 +102,13 @@ a fix PR for it: answer an alert with an out-of-cycle update PR.
 That procedure only reaches direct dependencies. `bun outdated` lists nothing else, and
 `bun install` and `bun install --force` keep every transitive dependency at its locked
 version — the October 2026 update found `@types/node` and `undici-types` behind that way.
-To move them, run a bare `bun update` on the pinned Bun: from 1.4 it re-resolves the whole
-tree within the ranges in `package.json`, raises those ranges to the versions it installs,
-and keeps `bun.lock` in its current format. (Bun 1.3's `bun update` left transitive
-dependencies where they were.) Do not delete `bun.lock` to force the re-resolve instead: a
-lockfile Bun 1.4 writes from scratch is `"lockfileVersion": 2`, which Bun 1.3 refuses to
-read. Review the lockfile diff before committing it.
+To move them, run a bare `bun update` on the pinned Bun. Measured on Bun 1.4.2, it
+re-resolves the whole tree within the ranges in `package.json`, raises those ranges to the
+versions it installs, and keeps `bun.lock` in its current format; Bun 1.3.14's `bun update`
+left transitive dependencies where they were. Do not delete `bun.lock` to force the
+re-resolve instead: Bun 1.4.2 writes a lockfile created from scratch as
+`"lockfileVersion": 2`, which Bun 1.3.14 refuses to read. Review the lockfile diff before
+committing it.
 
 These have to move together:
 
