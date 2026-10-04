@@ -16,16 +16,19 @@ import { join } from "node:path";
  *
  * CI's `bash` smoke step covers the not-found branch against the BUILT bundle; that branch is
  * deliberately not repeated here, because making it hermetic means neutralising every candidate
- * directory, and three of them are hard-coded absolute paths that no env var can point elsewhere:
- * `/usr/local/bin` and `/usr/bin` on linux plus `/home/linuxbrew/.linuxbrew/bin`, and
- * `/opt/homebrew/bin` on darwin. (`~/.local/bin` and `~/.linuxbrew/bin` follow `HOME` and would
- * be redirectable; it is the absolute ones that make a hermetic not-found impossible here.)
+ * directory, and four of them are hard-coded absolute paths that no env var can point elsewhere:
+ * `/usr/local/bin` on both POSIX platforms, `/usr/bin` and `/home/linuxbrew/.linuxbrew/bin` on
+ * linux, and `/opt/homebrew/bin` on darwin. (`~/.local/bin` and `~/.linuxbrew/bin` follow `HOME`
+ * and would be redirectable; it is the absolute ones that make a hermetic not-found impossible.)
  */
 
 const LAUNCHER = join(import.meta.dir, "index.ts");
 const IS_WINDOWS = process.platform === "win32";
 
-/** Generous: this spawns bun, which then spawns a second process, on a shared CI runner. */
+/**
+ * Generous: this spawns bun, which then spawns a second process, on a shared CI runner — and on
+ * Windows the double is compiled first (`fakeNimbus`).
+ */
 const E2E_TIMEOUT_MS = 30_000;
 
 const tempDirs: string[] = [];
@@ -40,20 +43,66 @@ function tempDir(): string {
   return dir;
 }
 
+interface CapturedRun {
+  readonly code: number;
+  readonly stdout: string;
+  readonly stderr: string;
+}
+
+/**
+ * Runs `argv` to completion with no stdin, capturing the two output streams SEPARATELY — for the
+ * launcher the split is half of what these tests assert, so a combined `2>&1` capture would
+ * defeat them.
+ */
+async function runCaptured(
+  argv: string[],
+  options: { readonly cwd: string; readonly env?: Record<string, string | undefined> },
+): Promise<CapturedRun> {
+  const proc = Bun.spawn(argv, { ...options, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+  const [stdout, stderr, code] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { code, stdout, stderr };
+}
+
 /**
  * A stand-in for the real CLI: it reports the argv it was handed on stdout and exits with a
- * known status. A `.cmd` on Windows and a `#!/bin/sh` script elsewhere — what matters is only
- * that the OS can execute the file directly, since the launcher spawns the resolved path with
- * no shell. (The real resolved binary is `nimbus.exe`/`nimbus`; this is a test double, and the
- * launcher neither knows nor cares which it got.)
+ * known status. The launcher spawns the resolved path with no shell, so the double must be a
+ * file the runtime will start directly: a `#!/bin/sh` script with the execute bit on POSIX,
+ * where `execve` honours the shebang, and a real executable image on Windows.
+ *
+ * The Windows double used to be a `.cmd`. Windows runs one only by implicitly starting
+ * `cmd.exe`, which re-parses the arguments by its own rules, so Node refuses to spawn a
+ * `.cmd`/`.bat` without `shell: true` (`spawn EINVAL`, its CVE-2024-27980 fix), and Bun does too
+ * from 1.4. The `.cmd` therefore passed here under Bun 1.3 while the very same launcher, run under
+ * Node the way users run it, could not start it. It is now the same two lines built with
+ * `bun build --compile`, the way the monorepo builds the real CLI (`packages/cli`'s `build`
+ * script). (The launcher neither knows nor cares that this one is a test double.)
  */
-function fakeNimbus(exitCode: number): string {
-  const path = join(tempDir(), IS_WINDOWS ? "nimbus.cmd" : "nimbus");
-  if (IS_WINDOWS) {
-    writeFileSync(path, `@echo off\r\necho FAKE-NIMBUS %*\r\nexit /b ${exitCode}\r\n`);
-  } else {
+async function fakeNimbus(exitCode: number): Promise<string> {
+  const dir = tempDir();
+  if (!IS_WINDOWS) {
+    const path = join(dir, "nimbus");
     writeFileSync(path, `#!/bin/sh\necho "FAKE-NIMBUS $*"\nexit ${exitCode}\n`);
     chmodSync(path, 0o755);
+    return path;
+  }
+  const source = join(dir, "fake-nimbus.ts");
+  const path = join(dir, "nimbus.exe");
+  // `exitCode`, not `process.exit()`: exiting on the next line could drop the piped write.
+  writeFileSync(
+    source,
+    `process.stdout.write(["FAKE-NIMBUS", ...process.argv.slice(2)].join(" ") + "\\n");\n` +
+      `process.exitCode = ${exitCode};\n`,
+  );
+  const build = await runCaptured(
+    [process.execPath, "build", "--compile", source, "--outfile", path],
+    { cwd: dir },
+  );
+  if (build.code !== 0) {
+    throw new Error(`bun build --compile exited ${build.code}:\n${build.stdout}${build.stderr}`);
   }
   return path;
 }
@@ -67,38 +116,22 @@ function unusableNimbus(): string {
   return path;
 }
 
-interface LaunchResult {
-  readonly code: number;
-  readonly stdout: string;
-  readonly stderr: string;
-}
-
 /**
- * Runs the bin entry with `NIMBUS_BIN` pointed at `nimbusBin`, capturing the two output streams
- * SEPARATELY — the split is half of what these tests assert, so a combined `2>&1` capture would
- * defeat them. The override short-circuits `CANDIDATE_DIRS` entirely, which is what keeps these
- * independent of whether the machine running them has Nimbus installed.
+ * Runs the bin entry with `NIMBUS_BIN` pointed at `nimbusBin`. The override short-circuits
+ * `CANDIDATE_DIRS` entirely, which is what keeps these independent of whether the machine running
+ * them has Nimbus installed.
  */
-async function runLauncher(nimbusBin: string): Promise<LaunchResult> {
-  const proc = Bun.spawn([process.execPath, LAUNCHER], {
+function runLauncher(nimbusBin: string): Promise<CapturedRun> {
+  return runCaptured([process.execPath, LAUNCHER], {
     cwd: tmpdir(),
     env: { ...process.env, NIMBUS_BIN: nimbusBin },
-    stdin: "ignore",
-    stdout: "pipe",
-    stderr: "pipe",
   });
-  const [stdout, stderr, code] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  return { code, stdout, stderr };
 }
 
 test(
   "the resolved binary is run as `mcp-server --stdio`, with the client's streams inherited",
   async () => {
-    const { code, stdout, stderr } = await runLauncher(fakeNimbus(0));
+    const { code, stdout, stderr } = await runLauncher(await fakeNimbus(0));
     // The child wrote this to ITS stdout. Seeing it here is what proves `stdio: "inherit"`:
     // a launcher that piped instead would leave this empty, and the MCP client would sit
     // waiting on a server whose handshake never arrives.
@@ -115,7 +148,7 @@ test(
   async () => {
     // 7 rather than 1: it cannot be confused with the launcher's own failure exit, so this
     // fails if the wiring ever collapses to a hardcoded code.
-    const { code } = await runLauncher(fakeNimbus(7));
+    const { code } = await runLauncher(await fakeNimbus(7));
     expect(code).toBe(7);
   },
   E2E_TIMEOUT_MS,

@@ -12,10 +12,11 @@ This package is MIT-licensed and does not depend on (or import from) the AGPL-3.
 `packages/gateway` Nimbus source — it only knows how to *find* the installed binary, never how to
 run the gateway itself.
 
-**Requires the Nimbus gateway to already be installed.** This launcher does not install or bundle
-Nimbus; run the regular [Nimbus installer](https://nimbus-agent.dev/user-guide/install/) first, and
-keep the gateway configured the way you normally use it (the `mcp-server --stdio` command talks to
-your existing local index).
+**Requires the Nimbus gateway to already be installed and running.** This launcher does not install
+or bundle Nimbus; run the regular [Nimbus installer](https://nimbus-agent.dev/user-guide/install/)
+first, and keep the gateway configured the way you normally use it (the `mcp-server --stdio` command
+talks to your existing local index). Start the gateway with `nimbus start`: the MCP server comes up
+without it, but its tool calls then return an error asking you to start it.
 
 ## Scope
 
@@ -111,7 +112,9 @@ directory to be added here.
 
 ### Environment variables
 
-- `NIMBUS_BIN` — override the resolved binary path. Point it at the exact Nimbus CLI executable.
+- `NIMBUS_BIN` — override the resolved binary path. Point it at the exact Nimbus CLI executable —
+  on Windows, `nimbus.exe` itself. Node will not start a `.cmd` or `.bat` wrapper without a shell,
+  so one fails with `Failed to start the Nimbus MCP server: spawn EINVAL`.
 - `NIMBUS_MCP_TIMEOUT_MS` — how long the Nimbus **CLI's MCP adapter** waits for an agent brief
   before returning a clean timeout error; it defaults to 60 s. Lower it when your editor's own MCP
   transport timeout is shorter, so the tool reports a timeout instead of having the call severed
@@ -123,9 +126,9 @@ directory to be added here.
 
 - [`docs/architecture.md`](https://github.com/nimbus-agent/Nimbus/blob/main/docs/architecture.md) —
   Nimbus subsystem design and the MCP connector standard.
-- The gateway's `mcp-server` command, in the main [Nimbus](https://github.com/nimbus-agent/Nimbus)
-  repository (`packages/gateway`, `packages/cli`) — this package launches it, but does not contain
-  or license it.
+- The CLI's `mcp-server` command, in the main [Nimbus](https://github.com/nimbus-agent/Nimbus)
+  repository (`packages/cli`, serving the gateway's index and agents from `packages/gateway`) —
+  this package launches it, but does not contain or license it.
 
 ## License
 
